@@ -1,0 +1,8 @@
+﻿.vs/
+CLAUDE.md
+appsettings.Development.json
+**/bin/
+**/obj/
+*.user
+*.suo
+.DS_Store
