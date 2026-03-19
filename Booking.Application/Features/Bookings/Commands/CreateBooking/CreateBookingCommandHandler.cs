@@ -16,17 +16,20 @@ namespace Booking.Application.Features.Bookings.Commands.CreateBooking
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
         private readonly IEmailService _emailService;
+        private readonly INotificationService _notificationService;
 
         public CreateBookingCommandHandler(
             IBookingRepository repository,
             IApplicationDbContext context,
             ICurrentUserService currentUserService,
-            IEmailService emailService)
+            IEmailService emailService,
+            INotificationService notificationService)
         {
             _repository = repository;
             _context = context;
             _currentUserService = currentUserService;
             _emailService = emailService;
+            _notificationService = notificationService;
         }
 
         public async Task<Guid> Handle(CreateBookingCommand request, CancellationToken cancellationToken)
@@ -128,6 +131,11 @@ namespace Booking.Application.Features.Bookings.Commands.CreateBooking
             };
 
             await _repository.AddAsync(booking, cancellationToken);
+
+            await _notificationService.SendToUserAsync(
+                property.OwnerId,
+                "NewBookingRequest",
+                $"New booking request for {property.Name}.");
 
             // Notify host of new booking request
             var host = await _context.UsersQuery

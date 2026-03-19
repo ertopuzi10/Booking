@@ -12,12 +12,14 @@ namespace Booking.Application.Features.Bookings.Commands.RejectBooking
         private readonly IBookingRepository _repository;
         private readonly ICurrentUserService _currentUserService;
         private readonly IEmailService _emailService;
+        private readonly INotificationService _notificationService;
 
-        public RejectBookingCommandHandler(IBookingRepository repository, ICurrentUserService currentUserService, IEmailService emailService)
+        public RejectBookingCommandHandler(IBookingRepository repository, ICurrentUserService currentUserService, IEmailService emailService, INotificationService notificationService)
         {
             _repository = repository;
             _currentUserService = currentUserService;
             _emailService = emailService;
+            _notificationService = notificationService;
         }
 
         public async Task<Unit> Handle(RejectBookingCommand request, CancellationToken cancellationToken)
@@ -40,6 +42,11 @@ namespace Booking.Application.Features.Bookings.Commands.RejectBooking
             booking.LastModifiedAt = DateTime.UtcNow;
 
             await _repository.SaveChangesAsync(cancellationToken);
+
+            await _notificationService.SendToUserAsync(
+                booking.GuestId,
+                "BookingRejected",
+                $"Your booking for {booking.Property.Name} has been rejected.");
 
             if (booking.Guest != null)
             {

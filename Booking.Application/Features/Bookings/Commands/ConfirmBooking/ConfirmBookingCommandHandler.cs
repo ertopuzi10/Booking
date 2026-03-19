@@ -12,12 +12,14 @@ namespace Booking.Application.Features.Bookings.Commands.ConfirmBooking
         private readonly IBookingRepository _repository;
         private readonly ICurrentUserService _currentUserService;
         private readonly IEmailService _emailService;
+        private readonly INotificationService _notificationService;
 
-        public ConfirmBookingCommandHandler(IBookingRepository repository, ICurrentUserService currentUserService, IEmailService emailService)
+        public ConfirmBookingCommandHandler(IBookingRepository repository, ICurrentUserService currentUserService, IEmailService emailService, INotificationService notificationService)
         {
             _repository = repository;
             _currentUserService = currentUserService;
             _emailService = emailService;
+            _notificationService = notificationService;
         }
 
         public async Task<Unit> Handle(ConfirmBookingCommand request, CancellationToken cancellationToken)
@@ -39,6 +41,11 @@ namespace Booking.Application.Features.Bookings.Commands.ConfirmBooking
             booking.LastModifiedAt = DateTime.UtcNow;
 
             await _repository.SaveChangesAsync(cancellationToken);
+
+            await _notificationService.SendToUserAsync(
+                booking.GuestId,
+                "BookingConfirmed",
+                $"Your booking for {booking.Property.Name} has been confirmed!");
 
             if (booking.Guest != null)
             {

@@ -1,5 +1,6 @@
 using Booking.Infrastructure.Persistence;
 using Booking.Infrastructure;
+using Booking.API.Hubs;
 using Booking.Infrastructure.Services;
 using Booking.Application.Features.Users.Register;
 using Booking.Application.Services;
@@ -26,6 +27,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 //services
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -105,5 +107,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();

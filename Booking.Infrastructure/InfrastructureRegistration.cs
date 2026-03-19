@@ -40,6 +40,9 @@ namespace Booking.Infrastructure
             services.Configure<SendGridOptions>(configuration.GetSection("SendGrid"));
             services.AddScoped<IEmailService, EmailService>();
 
+            // Notifications
+            services.AddScoped<INotificationService, NotificationService>();
+
             return services;
         }
     }

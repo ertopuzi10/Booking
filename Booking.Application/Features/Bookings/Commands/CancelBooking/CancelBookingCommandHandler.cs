@@ -15,17 +15,20 @@ namespace Booking.Application.Features.Bookings.Commands.CancelBooking
         private readonly ICurrentUserService _currentUserService;
         private readonly IEmailService _emailService;
         private readonly IApplicationDbContext _context;
+        private readonly INotificationService _notificationService;
 
         public CancelBookingCommandHandler(
             IBookingRepository repository,
             ICurrentUserService currentUserService,
             IEmailService emailService,
-            IApplicationDbContext context)
+            IApplicationDbContext context,
+            INotificationService notificationService)
         {
             _repository = repository;
             _currentUserService = currentUserService;
             _emailService = emailService;
             _context = context;
+            _notificationService = notificationService;
         }
 
         public async Task<CancelBookingResult> Handle(CancelBookingCommand request, CancellationToken cancellationToken)
@@ -55,6 +58,11 @@ namespace Booking.Application.Features.Bookings.Commands.CancelBooking
             booking.LastModifiedAt = DateTime.UtcNow;
 
             await _repository.SaveChangesAsync(cancellationToken);
+
+            await _notificationService.SendToUsersAsync(
+                new[] { booking.GuestId, booking.Property.OwnerId },
+                "BookingCancelled",
+                $"Booking for {booking.Property.Name} has been cancelled.");
 
             // Send cancellation emails to both guest and host
             var host = await _context.UsersQuery
