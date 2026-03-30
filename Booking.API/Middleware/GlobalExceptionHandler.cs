@@ -1,12 +1,16 @@
+using System;
 using System.Diagnostics;
 using System.Net.Mime;
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
+using Booking.Application.Abstractions;
+using Booking.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Booking.API.Middleware
 {
@@ -21,26 +25,36 @@ namespace Booking.API.Middleware
         private readonly RequestDelegate _next;
         private readonly ILogger<GlobalExceptionHandler> _logger;
         private readonly IHostEnvironment _env;
+        private readonly string _logTopic;
 
         public GlobalExceptionHandler(
             RequestDelegate next,
             ILogger<GlobalExceptionHandler> logger,
-            IHostEnvironment env)
+            IHostEnvironment env,
+            IOptions<KafkaProducerOptions> kafkaOptions)
         {
             _next = next;
             _logger = logger;
             _env = env;
+            _logTopic = kafkaOptions.Value.ErrorTopic;
         }
 
-        public async Task InvokeAsync(HttpContext context)
+        public async Task InvokeAsync(HttpContext context, IEventPublisher eventPublisher)
         {
+            Exception? caughtEx = null;
+
             try
             {
                 await _next(context);
             }
             catch (Exception ex)
             {
+                caughtEx = ex;
                 await HandleExceptionAsync(context, ex);
+            }
+            finally
+            {
+                await PublishRequestLog(context, context.Response.StatusCode, caughtEx, eventPublisher);
             }
         }
 
@@ -80,6 +94,35 @@ namespace Booking.API.Middleware
             };
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(payload, JsonOptions));
+        }
+
+        private async Task PublishRequestLog(HttpContext context, int status, Exception? ex, IEventPublisher eventPublisher)
+        {
+            try
+            {
+                var statusType = status switch
+                {
+                    >= 200 and < 300 => "Success",
+                    >= 400 and < 500 => "ClientError",
+                    _ => "ServerError"
+                };
+
+                await eventPublisher.PublishAsync(_logTopic, new
+                {
+                    method = context.Request.Method,
+                    path = context.Request.Path.Value,
+                    statusCode = status,
+                    statusType,
+                    exceptionMessage = ex?.Message,
+                    exceptionType = ex?.GetType().FullName,
+                    stackTrace = status == StatusCodes.Status500InternalServerError ? ex?.StackTrace : null,
+                    occurredAt = DateTime.UtcNow
+                });
+            }
+            catch (Exception publishEx)
+            {
+                _logger.LogError(publishEx, "Failed to publish request log to Kafka");
+            }
         }
 
         private static (int status, string title, string? detail) MapException(Exception ex)

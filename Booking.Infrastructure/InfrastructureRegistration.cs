@@ -2,6 +2,7 @@ using Booking.Application.Abstractions;
 using Booking.Application.Common.Interfaces;
 using Booking.Infrastructure.Configuration;
 using Booking.Infrastructure.Contracts.AuthService;
+using Booking.Infrastructure.Kafka;
 using Booking.Infrastructure.Persistence;
 using Booking.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -42,6 +43,10 @@ namespace Booking.Infrastructure
 
             // Notifications
             services.AddScoped<INotificationService, NotificationService>();
+
+            // Kafka
+            services.Configure<KafkaProducerOptions>(configuration.GetSection("Kafka"));
+            services.AddScoped<IEventPublisher, KafkaEventPublisher>();
 
             return services;
         }

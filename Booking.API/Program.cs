@@ -12,8 +12,9 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// URLs configuration
-builder.WebHost.UseUrls("http://localhost:5000", "https://localhost:5001");
+var urls = builder.Configuration["ASPNETCORE_URLS"];
+if (!string.IsNullOrEmpty(urls))
+    builder.WebHost.UseUrls(urls);
 
 // JWT Configuration
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-secret-key-must-be-at-least-32-characters-long";
@@ -94,6 +95,20 @@ builder.Services.AddAuthentication(x =>
     };
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("SignalRPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5000",
+                           "https://localhost:5001",
+                           "http://localhost:3000",
+                           "null")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
@@ -105,6 +120,8 @@ app.UseGlobalExceptionHandler();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseCors("SignalRPolicy");
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
